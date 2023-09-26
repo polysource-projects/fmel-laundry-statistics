@@ -5,7 +5,7 @@ FROM node:20.4.0-alpine
 WORKDIR /app
 
 # Copy package.json and pnpm-lock.yaml from the host to the container
-COPY package.json pnpm-lock.yaml ./
+COPY package.json yarn.lock ./
 
 # Install dependencies
 RUN yarn install --frozen-lockfile
