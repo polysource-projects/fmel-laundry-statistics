@@ -1,6 +1,9 @@
 # Base image: Node LTS
 FROM node:20.4.0-alpine
 
+# Install Git
+RUN apt-get update && apt-get install -y git
+
 # Create application directory and move there
 WORKDIR /app
 
