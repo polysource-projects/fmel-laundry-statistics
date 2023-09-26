@@ -48,4 +48,4 @@ login(process.env.CODE_IMMEUBLE as string, process.env.CODE_PERSONNEL as string)
 
 setInterval(() => {
     sendPoints();
-}, 10_000);
+}, 60_000*2);
