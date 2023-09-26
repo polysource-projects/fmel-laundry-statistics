@@ -6,7 +6,7 @@ import { login, fetchMachines } from 'eeproperty-wrapper';
 
 const token = process.env.INFLUXDB_TOKEN;
 
-const url = 'http://localhost:8086'
+const url = process.env.INFLUXDB_URL as string;
 
 const client = new InfluxDB({ url, token });
 
