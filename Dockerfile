@@ -17,10 +17,10 @@ RUN yarn install --frozen-lockfile
 COPY . .
 
 # Build the app
-RUN pnpm run build
+RUN yarn run build
 
 # Expose the port
 EXPOSE 3000
 
 # Start the server
-CMD ["pnpm", "start"]
+CMD ["yarn", "start"]
