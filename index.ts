@@ -15,39 +15,41 @@ let bucket = `machines`
 
 const sendPoints = () => {
 
+    login(process.env.CODE_IMMEUBLE as string, process.env.CODE_PERSONNEL as string).then((token) => {
 
-login(process.env.CODE_IMMEUBLE as string, process.env.CODE_PERSONNEL as string).then((token) => {
+        fetchMachines(token).then((machines) => {
 
-    fetchMachines(token).then((machines) => {
+            const ts = Date.now();
+            // round to last second
+            const tsRounded = ts - (ts % 1000);
 
-        const ts = Date.now();
-        // round to last second
-        const tsRounded = ts - (ts % 1000);
+            console.log('TS', tsRounded);
+            console.log(new Date(tsRounded).toISOString());
 
-        let used = 0;
-        
-        let writeClient = client.getWriteApi(org, bucket, 'ns');
-
-        for (let machine of machines) {
-            let point = new Point('machines_a_laver')
-                .timestamp(tsRounded)
-                .tag('machine_id', machine.number.toString() + ' ' + machine.room)
-                .intField('status', machine.state === 'ACTIVATED' ? 1 : 0);
-
-            used += machine.state === 'ACTIVATED' ? 1 : 0;
+            let used = 0;
             
-            writeClient.writePoint(point);
-        }
+            let writeClient = client.getWriteApi(org, bucket, 'ns');
 
-        console.log('USED', used);
+            for (let machine of machines) {
+                let point = new Point('machines_a_laver')
+                    .timestamp(tsRounded)
+                    .tag('machine_id', machine.number.toString() + ' ' + machine.room)
+                    .intField('status', machine.state === 'ACTIVATED' ? 1 : 0);
 
-        writeClient.flush().then(() => {
-            console.log('FINISHED')
+                used += machine.state === 'ACTIVATED' ? 1 : 0;
+                
+                writeClient.writePoint(point);
+            }
+
+            console.log('USED', used);
+
+            writeClient.flush().then(() => {
+                console.log('FINISHED')
+            });
+
         });
 
     });
-
-});
 
 }
 
