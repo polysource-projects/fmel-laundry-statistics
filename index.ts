@@ -20,12 +20,17 @@ login(process.env.CODE_IMMEUBLE as string, process.env.CODE_PERSONNEL as string)
 
     fetchMachines(token).then((machines) => {
 
+        const ts = Date.now();
+        // round to last second
+        const tsRounded = ts - (ts % 1000);
+
         let used = 0;
         
         let writeClient = client.getWriteApi(org, bucket, 'ns');
 
         for (let machine of machines) {
             let point = new Point('machines_a_laver')
+                .timestamp(tsRounded)
                 .tag('machine_id', machine.number.toString() + ' ' + machine.room)
                 .intField('status', machine.state === 'ACTIVATED' ? 1 : 0);
 
