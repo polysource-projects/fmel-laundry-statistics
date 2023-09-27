@@ -13,6 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "@influxdata/influxdb-client": "^1.33.2",
+    "cron": "^2.4.4",
     "dotenv": "^16.3.1",
     "eeproperty-wrapper": "https://github.com/polysource-projects/eeproperty-wrapper"
   },

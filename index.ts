@@ -4,6 +4,8 @@ config();
 import { InfluxDB, Point } from '@influxdata/influxdb-client';
 import { login, fetchMachines } from 'eeproperty-wrapper';
 
+import { CronJob } from 'cron';
+
 const token = process.env.INFLUXDB_TOKEN;
 
 const url = process.env.INFLUXDB_URL as string;
@@ -20,7 +22,6 @@ const sendPoints = () => {
         fetchMachines(token).then((machines) => {
 
             const date = new Date();
-            date.setMinutes(0);
             date.setSeconds(0);
             date.setMilliseconds(0);
 
@@ -56,6 +57,8 @@ const sendPoints = () => {
 
 }
 
-setInterval(() => {
+new CronJob('0 */2 * * * *', () => {
+
     sendPoints();
-}, 60_000*2);
+
+}, null, true, 'Europe/Paris');
