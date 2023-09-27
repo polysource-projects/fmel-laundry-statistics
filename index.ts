@@ -19,29 +19,31 @@ const sendPoints = () => {
 
         fetchMachines(token).then((machines) => {
 
-            const ts = Date.now();
-            // round to last second
-            const tsRounded = ts - (ts % 1000);
-
-            console.log('TS', tsRounded);
-            console.log(new Date(tsRounded).toISOString());
+            const date = new Date();
+            date.setSeconds(0);
+            date.setMilliseconds(0);
 
             let used = 0;
             
             let writeClient = client.getWriteApi(org, bucket, 'ns');
+            
+            const points = [];
 
             for (let machine of machines) {
                 let point = new Point('machines_a_laver')
-                    .timestamp(tsRounded)
+                    .timestamp(date)
                     .tag('machine_id', machine.number.toString() + ' ' + machine.room)
                     .intField('status', machine.state === 'ACTIVATED' ? 1 : 0);
 
                 used += machine.state === 'ACTIVATED' ? 1 : 0;
+
+                points.push(point);
                 
-                writeClient.writePoint(point);
             }
 
             console.log('USED', used);
+
+            writeClient.writePoints(points);
 
             writeClient.flush().then(() => {
                 console.log('FINISHED')
