@@ -20,6 +20,7 @@ const sendPoints = () => {
         fetchMachines(token).then((machines) => {
 
             const date = new Date();
+            date.setMinutes(0);
             date.setSeconds(0);
             date.setMilliseconds(0);
 
