@@ -35,9 +35,9 @@ const sendPoints = () => {
                 let point = new Point('machines_a_laver')
                     .timestamp(date)
                     .tag('machine_id', machine.number.toString() + ' ' + machine.room)
-                    .intField('status', machine.state === 'ACTIVATED' ? 1 : 0);
+                    .intField('status', machine.state !== 'ACTIVATED' ? 0 : 1);
 
-                used += machine.state === 'ACTIVATED' ? 1 : 0;
+                used += machine.state !== 'ACTIVATED' ? 0 : 1;
 
                 points.push(point);
                 
