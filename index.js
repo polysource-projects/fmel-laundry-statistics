@@ -29,17 +29,7 @@ const countedDates = [];
 // on veut créer des entrées pour chaque machine, par jour
 // de la forme
 /*
-{ "Atrium F" : [
-	{
-		date: "2020-12-01",
-		hourCount: 2.5
-	},
-	{
-		date: "2020-12-02",
-		hourCount: 3.5
-	}
-  ]
-}
+{ "Atrium F" : { "2020-12-01": 2.5 } }
 */
 const machinesUses = {};
 
@@ -67,35 +57,27 @@ queryApi.queryRows(simpleQuery, {
 			})
 			.forEach((row) => {
 
+				const date = new Date(row._time);
+				const resetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
 
 				// Calcul les tranches d'utilisation de chaque machine
 
 				if (!machinesUses[row.machine_id]) {
-					machinesUses[row.machine_id] = [];
+					machinesUses[row.machine_id] = {};
 				}
 
-				const machineUses = machinesUses[row.machine_id];
-
-				if (row._value == 0) {
-					const lastUsagePeriod = machineUses[machineUses.length - 1];
-					if (lastUsagePeriod && !lastUsagePeriod.end) {
-						lastUsagePeriod.end = row._time;
-						lastUsagePeriod.duration = parseFloat(((new Date(lastUsagePeriod.end) - new Date(lastUsagePeriod.start)) / 1000 / 60 / 60).toFixed(2));
-					}
-				} else {
-					const lastUsagePeriod = machineUses[machineUses.length - 1];
-					if (!lastUsagePeriod || lastUsagePeriod.end) {
-						machinesUses[row.machine_id].push({ start: row._time, end: null });
-					}
+				if (!machinesUses[row.machine_id][resetDate.toISOString()]) {
+					machinesUses[row.machine_id][resetDate.toISOString()] = 0;
 				}
 
-
+				if (row._value == 1) {
+					machinesUses[row.machine_id][resetDate.toISOString()] += 2;
+				}
 
 				// Maintenant, on veut compter le nombre de dimanche, de lundi, etc. qui passent
 				// Ce sera utile pour faire une moyenne cohérente à la fin
 
-				const date = new Date(row._time);
-				const resetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 				if (!countedDates.includes(resetDate.toISOString())) {
 					countedDates.push(resetDate.toISOString());
 					if (!countPerDays[date.getDay()]) {
@@ -113,14 +95,13 @@ queryApi.queryRows(simpleQuery, {
 			const hourCountPerDayOfWeek = {};
 
 			Object.keys(machinesUses).forEach((machineId) => {
-				const machineUses = machinesUses[machineId];
-				machineUses.forEach((usagePeriod) => {
-					const date = new Date(usagePeriod.start);
+				Object.keys(machinesUses[machineId]).forEach((dateS) => {
+					const date = new Date(dateS);
 					const resetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 					if (!hourCountPerDayOfWeek[resetDate.getDay()]) {
 						hourCountPerDayOfWeek[resetDate.getDay()] = 0;
 					}
-					hourCountPerDayOfWeek[resetDate.getDay()] += usagePeriod.duration;
+					hourCountPerDayOfWeek[resetDate.getDay()] += machinesUses[machineId][dateS] / 60;
 				});
 			});
 
