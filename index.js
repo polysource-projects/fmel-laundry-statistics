@@ -1,6 +1,8 @@
 const { InfluxDB } = require('@influxdata/influxdb-client');
 require('dotenv').config();
 
+const chalk = require('chalk');
+
 const url = process.env.INFLUXDB_URL;
 const token = process.env.INFLUXDB_TOKEN;
 const org = `FMEL Machines`;
@@ -11,7 +13,7 @@ const queryApi = client.getQueryApi(org);
 
 const simpleQuery = `
 from(bucket: "${bucket}")
-  |> range(start: -10d)
+  |> range(start: -40d)
   |> sort(columns: ["_time"])
 `;
 
@@ -29,10 +31,13 @@ const countedDates = [];
 /*
 { "Atrium F" : [
 	{
-	  start: ISOStringDate,
-	  end: ISOStringDate,
-	  duration: Number
+		date: "2020-12-01",
+		hourCount: 2.5
 	},
+	{
+		date: "2020-12-02",
+		hourCount: 3.5
+	}
   ]
 }
 */
@@ -119,10 +124,30 @@ queryApi.queryRows(simpleQuery, {
 				});
 			});
 
+			// moyenne par jour
+			const weekOfDaysNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+			Object.keys(hourCountPerDayOfWeek).forEach((day) => {
+				console.log(weekOfDaysNames[day] + ' : ' + (hourCountPerDayOfWeek[day] / countPerDays[day]).toFixed(2) + 'h');
+			});
 			console.log(machinesUses);
 			console.log(countPerDays);
 			console.log(hourCountPerDayOfWeek);
 
+			for (let i = 1; i <= 7; i++) {
+				const weekOfDayIndex = i % 7;
+				const weekOfDay = weekOfDaysNames[weekOfDayIndex];
+
+				const averageHourCount = Math.round(hourCountPerDayOfWeek[weekOfDayIndex] / countPerDays[weekOfDayIndex]);
+				const totalHourCount = (22 - 7);
+				const totalMachinesAvailable = Object.keys(machinesUses).length;
+				const totalHourCountForAllMachines = totalHourCount * totalMachinesAvailable;
+				const percentage = Math.round(averageHourCount / totalHourCountForAllMachines * 100);
+
+				const color = percentage > 50 ? percentage > 100 ? 'red' : 'yellow' : 'green';
+
+				console.log(`Le ${weekOfDay}, en moyenne, les machines sont utilisées ${averageHourCount}h (${chalk[color](percentage)}%)`);
+
+			}
 
 		/*
 
