@@ -2,6 +2,7 @@ const { InfluxDB } = require('@influxdata/influxdb-client');
 require('dotenv').config();
 
 const chalk = require('chalk');
+const { writeFileSync } = require('fs');
 
 const url = process.env.INFLUXDB_URL;
 const token = process.env.INFLUXDB_TOKEN;
@@ -13,7 +14,7 @@ const queryApi = client.getQueryApi(org);
 
 const simpleQuery = `
 from(bucket: "${bucket}")
-  |> range(start: -40d, stop: -2d)
+  |> range(start: 2023-10-01T22:00:00Z, stop: 2023-11-03T23:59:00Z)
   |> sort(columns: ["_time"])
 `;
 
@@ -25,6 +26,10 @@ const rawData = [];
 // pour faire une moyenne cohérente à la fin
 const countPerDays = {};
 const countedDates = [];
+
+let idxToHourDay = null;
+let idxToHourMachine = null;
+const idxToHour = [];
 
 // on veut créer des entrées pour chaque machine, par jour
 // de la forme
@@ -78,6 +83,11 @@ queryApi.queryRows(simpleQuery, {
 					machinesUses[machineId] = {};
 				}
 
+				if (!idxToHourMachine) {
+					idxToHourMachine = row.machine_id;
+					idxToHourDay = resetDate.toISOString();
+				}
+
 				if (!machinesUses[machineId][resetDate.toISOString()]) {
 					machinesUses[machineId][resetDate.toISOString()] = [];
 				}
@@ -86,6 +96,10 @@ queryApi.queryRows(simpleQuery, {
 					machinesUses[machineId][resetDate.toISOString()].push(2);
 				} else {
 					machinesUses[machineId][resetDate.toISOString()].push(0);
+				}
+
+				if (idxToHourMachine === row.machine_id && idxToHourDay === resetDate.toISOString()) {
+					idxToHour.push(date.getHours() + " : " + date.getMinutes());
 				}
 
 				// Maintenant, on veut compter le nombre de dimanche, de lundi, etc. qui passent
@@ -194,6 +208,73 @@ queryApi.queryRows(simpleQuery, {
 		console.log(`La buanderie F est indisponible ${hourUsedPerDayF}h chaque jour (${chalk[colorF](percentageF)}%)`);
 		console.log(`Le buanderie G est indisponible ${hourUsedPerDayG}h chaque jour (${chalk[colorG](percentageG)}%)`);
 
+		// can be null or 0-6
+		const weekOfDay = 6;
+		const horairesDouvertureStart = 14;
+		const horairesDouvertureEnd = 15;
+		const isBetweenHorairesDouverture = (idx) => {
+			// idx commence à 0 qui vaut minuit
+			// et il y a un idx toutes les deux minutes
+			const minutesSinceMidnight = idx * 2;
+			const hoursSinceMidnight = Math.floor(minutesSinceMidnight / 60);
+			const minutes = minutesSinceMidnight % 60;
+			const time = hoursSinceMidnight + minutes / 100;
+			return time >= horairesDouvertureStart && time <= horairesDouvertureEnd;
+		}
+
+		const startIdx = horairesDouvertureStart * 60 / 2;
+
+		const resultsPerDayPerHour = {};
+
+		const firstMachineId = Object.keys(machinesUses)[0];
+		Object.keys(machinesUses[firstMachineId]).forEach((dateS) => {
+			const date = new Date(dateS);
+			const resetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+			if (!resultsPerDayPerHour[resetDate.toISOString()]) {
+				resultsPerDayPerHour[resetDate.toISOString()] = [];
+			}
+			Object.keys(machinesUses).forEach((machineId) => {
+				machinesUses[machineId][resetDate.toISOString()].forEach((minState, idx) => {
+					if (!isBetweenHorairesDouverture(idx)) return;
+					if (!resultsPerDayPerHour[resetDate.toISOString()][idx - startIdx]) {
+						resultsPerDayPerHour[resetDate.toISOString()][idx - startIdx] = 0;
+					}
+					if (minState === 0) {
+						resultsPerDayPerHour[resetDate.toISOString()][idx - startIdx]++;
+					}
+				});
+			});
+		});
+
+		//console.log(resultsPerDayPerHour);
+
+		const testDay = resultsPerDayPerHour['2023-10-21T22:00:00.000Z'];
+
+		const averageMachineAvailablePerHour = [];
+
+		function median(values) {
+
+			if (values.length === 0) {
+			  throw new Error('Input array is empty');
+			}
+		  
+			// Sorting values, preventing original array
+			// from being mutated.
+			values = [...values].sort((a, b) => a - b);
+		  
+			const half = Math.floor(values.length / 2);
+		  
+			return (values.length % 2
+			  ? values[half]
+			  : (values[half - 1] + values[half]) / 2
+			);
+		  
+		}
+
+		console.log(median(testDay))
+
+		writeFileSync('./results.json', JSON.stringify(resultsPerDayPerHour, null, 2));
+		writeFileSync('./idxToHour.json', JSON.stringify(idxToHour, null, 2));
 
 	},
 });
