@@ -33,6 +33,12 @@ const countedDates = [];
 */
 const machinesUses = {};
 
+const formatMachineId = (machineId) => {
+	const idx = machineId.split(' ')[0];
+	const letter = machineId.split(' ')[2];
+	return `Atrium ${idx} (${letter})`;
+}
+
 queryApi.queryRows(simpleQuery, {
 	next(row, tableMeta) {
 		const o = tableMeta.toObject(row);
@@ -63,16 +69,18 @@ queryApi.queryRows(simpleQuery, {
 
 				// Calcul les tranches d'utilisation de chaque machine
 
-				if (!machinesUses[row.machine_id]) {
-					machinesUses[row.machine_id] = {};
+				const machineId = formatMachineId(row.machine_id);
+
+				if (!machinesUses[machineId]) {
+					machinesUses[machineId] = {};
 				}
 
-				if (!machinesUses[row.machine_id][resetDate.toISOString()]) {
-					machinesUses[row.machine_id][resetDate.toISOString()] = 0;
+				if (!machinesUses[machineId][resetDate.toISOString()]) {
+					machinesUses[machineId][resetDate.toISOString()] = 0;
 				}
 
 				if (row._value == 1) {
-					machinesUses[row.machine_id][resetDate.toISOString()] += 2;
+					machinesUses[machineId][resetDate.toISOString()] += 2;
 				}
 
 				// Maintenant, on veut compter le nombre de dimanche, de lundi, etc. qui passent
@@ -87,7 +95,6 @@ queryApi.queryRows(simpleQuery, {
 				}
 
 			});
-
 
 			// Une fois qu'on a toutes les tranches d'utilisation de chaque machine
 			// On veut les sommer par jour
@@ -114,6 +121,10 @@ queryApi.queryRows(simpleQuery, {
 			console.log(countPerDays);
 			console.log(hourCountPerDayOfWeek);
 
+			console.log(chalk.yellow(`Processed ${rawData.length} points from InfluxDB.`));
+
+			console.log('\n');
+
 			for (let i = 1; i <= 7; i++) {
 				const weekOfDayIndex = i % 7;
 				const weekOfDay = weekOfDaysNames[weekOfDayIndex];
@@ -126,9 +137,51 @@ queryApi.queryRows(simpleQuery, {
 
 				const color = percentage > 50 ? percentage > 100 ? 'red' : 'yellow' : 'green';
 
-				console.log(`Le ${weekOfDay}, en moyenne, les machines sont utilisées ${averageHourCount}h (${chalk[color](percentage)}%)`);
+				console.log(`Les machines à laver sont utilisées, en moyenne, ${averageHourCount}h le ${chalk.cyan(weekOfDay)} (${chalk[color](percentage)}%)`);
 
 			}
+
+			console.log('\n');
+
+			let batF = 0;
+			let batG = 0;
+
+			let machinesBatF = Object.keys(machinesUses).filter((machineId) => machineId.includes('F')).length;
+			let machinesBatG = Object.keys(machinesUses).filter((machineId) => machineId.includes('G')).length;
+
+			for (let i = 0; i < Object.keys(machinesUses).length; i++) {
+				const machineId = Object.keys(machinesUses)[i];
+				const machineUses = machinesUses[machineId];
+				const hourUsedTotal = Math.round(Object.values(machineUses).reduce((acc, val) => acc + val, 0) / 60 * 100) / 100;
+				const hourUsedPerDay = Math.ceil(hourUsedTotal / countedDates.length * 100) / 100;
+				const totalHourCount = (22 - 7);
+				const percentage = Math.round((hourUsedPerDay) / totalHourCount * 100);
+				const color = percentage > 50 ? percentage > 100 ? 'red' : 'yellow' : 'green';
+				if (machineId.includes('F')) {
+					batF += hourUsedTotal;
+				} else {
+					batG += hourUsedTotal;
+				}
+				console.log(`La machine à laver ${chalk.magenta(machineId)} est indisponible ${hourUsedPerDay}h chaque jour (${chalk[color](percentage)}%)`);
+			}
+
+			console.log('\n');
+
+			const totalHourCountF = (22 - 7) * machinesBatF;
+			const totalHourCountG = (22 - 7) * machinesBatG;
+
+			const hourUsedPerDayF = Math.ceil(batF / countedDates.length);
+			const hourUsedPerDayG = Math.ceil(batG / countedDates.length);
+
+			const percentageF = Math.round((hourUsedPerDayF) / totalHourCountF * 100);
+			const percentageG = Math.round((hourUsedPerDayG) / totalHourCountG * 100);
+
+			const colorF = percentageF > 50 ? percentageF > 100 ? 'red' : 'yellow' : 'green';
+			const colorG = percentageG > 50 ? percentageG > 100 ? 'red' : 'yellow' : 'green';
+
+			console.log(`La buanderie F est indisponible ${hourUsedPerDayF}h chaque jour (${chalk[colorF](percentageF)}%)`);
+			console.log(`Le buanderie G est indisponible ${hourUsedPerDayG}h chaque jour (${chalk[colorG](percentageG)}%)`);
+
 
 		/*
 
